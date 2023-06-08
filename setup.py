@@ -8,7 +8,7 @@ with open('README.md', 'r', encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='Pandora-Cloud',
+    name='ChatGPT-Cloud',
     version=__version__,
     python_requires='>=3.7',
     author='Neo Peng',
@@ -17,13 +17,13 @@ setup(
     description='A package for Pandora-ChatGPT',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/pengzhile/pandora-cloud',
+    url='https://github.com/lannychan/pandora-cloud',
     packages=find_packages('src'),
     package_dir={'pandora_cloud': 'src/pandora_cloud'},
     include_package_data=True,
     project_urls={
-        'Source': 'https://github.com/pengzhile/pandora-cloud',
-        'Tracker': 'https://github.com/pengzhile/pandora-cloud/issues',
+        'Source': 'https://github.com/lannychan/pandora-cloud',
+        'Tracker': 'https://github.com/lannychan/pandora-cloud/issues',
     },
     classifiers=[
         'Development Status :: 4 - Beta',
