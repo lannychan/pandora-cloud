@@ -63,6 +63,7 @@ class ChatBot:
         app.route('/chat/<conversation_id>')(self.chat_index)
 
         app.route('/auth/login')(self.login)
+        app.route('/auth/login_share')(self.login_share_token)
         app.route('/auth/login', methods=['POST'])(self.login_post)
         app.route('/auth/login_token', methods=['POST'])(self.login_token)
 
@@ -118,6 +119,9 @@ class ChatBot:
 
         async with httpx.AsyncClient(proxies=self.proxy, timeout=30) as client:
             response = await client.get(url)
+            if response.status_code == 404:
+                raise Exception('share token not found or expired')
+
             if response.status_code != 200:
                 raise Exception('failed to fetch share token info')
 
@@ -169,6 +173,25 @@ class ChatBot:
                 error = str(e)
 
         return render_template('login.html', username=username, error=error, api_prefix=self.api_prefix)
+
+    async def login_share_token(self):
+        share_token = request.args.get('token')
+        error = None
+
+        if share_token and share_token.startswith('fk-'):
+            try:
+                ti = await self.__fetch_share_tokeninfo(share_token)
+                payload = {'exp': ti['expire_at']}
+
+                resp = make_response('please wait...', 307)
+                resp.headers.set('Location', '/')
+                self.__set_cookie(resp, share_token, payload['exp'])
+
+                return resp
+            except Exception as e:
+                error = str(e)
+
+        return render_template('login.html', error=error, api_prefix=self.api_prefix)
 
     async def login_token(self):
         access_token = request.form.get('access_token')
