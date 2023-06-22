@@ -293,9 +293,6 @@ class ChatBot:
         return render_template('404.html', pandora_sentry=self.sentry, api_prefix=self.api_prefix, props=props)
 
     async def share_detail(self, share_id):
-        err, user_id, email, _, _ = await self.__get_userinfo()
-        if err:
-            return redirect('/auth/login?next=%2Fshare%2F{}'.format(share_id))
 
         try:
             share_detail = await self.__fetch_share_detail(share_id)
