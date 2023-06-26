@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from os import getenv
 from os.path import join, abspath, dirname
 
@@ -28,7 +28,6 @@ class ChatBot:
         self.sentry = sentry
         self.login_local = login_local
         self.log_level = logging.DEBUG if debug else logging.WARN
-        self.api_prefix = getenv('CHATGPT_API_PREFIX', 'https://ai.fakeopen.com')
 
         hook_logging(level=self.log_level, format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s')
         self.logger = logging.getLogger('waitress')
@@ -93,6 +92,11 @@ class ChatBot:
         return sections[0], int(sections[1])
 
     @staticmethod
+    def __get_api_prefix():
+        default = 'https://ai-{}.fakeopen.com'.format((datetime.now() - timedelta(days=1)).strftime('%Y%m%d'))
+        return getenv('CHATGPT_API_PREFIX', default)
+
+    @staticmethod
     def __set_cookie(resp, token, expires):
         resp.set_cookie('access-token', token, expires=expires, path='/', domain=None, httponly=True, samesite='Lax')
 
@@ -115,7 +119,7 @@ class ChatBot:
         return False, user_id, email, access_token, payload
 
     async def __fetch_share_tokeninfo(self, share_token):
-        url = self.api_prefix + '/token/info/{}'.format(share_token)
+        url = self.__get_api_prefix() + '/token/info/{}'.format(share_token)
 
         async with httpx.AsyncClient(proxies=self.proxy, timeout=30) as client:
             response = await client.get(url)
@@ -128,7 +132,7 @@ class ChatBot:
             return response.json()
 
     async def __fetch_share_detail(self, share_id):
-        url = self.api_prefix + '/api/share/{}'.format(share_id)
+        url = self.__get_api_prefix() + '/api/share/{}'.format(share_id)
 
         async with httpx.AsyncClient(proxies=self.proxy, timeout=30) as client:
             response = await client.get(url)
@@ -150,7 +154,7 @@ class ChatBot:
         return resp
 
     async def login(self):
-        return render_template('login.html', api_prefix=self.api_prefix, next=request.args.get('next', ''))
+        return render_template('login.html', api_prefix=self.__get_api_prefix(), next=request.args.get('next', ''))
 
     async def login_post(self):
         username = request.form.get('username')
@@ -172,7 +176,7 @@ class ChatBot:
             except Exception as e:
                 error = str(e)
 
-        return render_template('login.html', username=username, error=error, api_prefix=self.api_prefix)
+        return render_template('login.html', username=username, error=error, api_prefix=self.__get_api_prefix())
 
     async def login_share_token(self):
         share_token = request.args.get('token')
@@ -191,7 +195,7 @@ class ChatBot:
             except Exception as e:
                 error = str(e)
 
-        return render_template('login.html', error=error, api_prefix=self.api_prefix)
+        return render_template('login.html', error=error, api_prefix=self.__get_api_prefix())
 
     async def login_token(self):
         access_token = request.form.get('access_token')
@@ -254,7 +258,7 @@ class ChatBot:
         }
 
         template = 'detail.html' if conversation_id else 'chat.html'
-        return render_template(template, pandora_sentry=self.sentry, api_prefix=self.api_prefix, props=props)
+        return render_template(template, pandora_sentry=self.sentry, api_prefix=self.__get_api_prefix(), props=props)
 
     async def session(self):
         err, user_id, email, access_token, payload = await self.__get_userinfo()
@@ -290,7 +294,7 @@ class ChatBot:
             'gip': True,
             'scriptLoader': []
         }
-        return render_template('404.html', pandora_sentry=self.sentry, api_prefix=self.api_prefix, props=props)
+        return render_template('404.html', pandora_sentry=self.sentry, api_prefix=self.__get_api_prefix(), props=props)
 
     async def share_detail(self, share_id):
         err, user_id, email, _, _ = await self.__get_userinfo()
@@ -312,7 +316,8 @@ class ChatBot:
                 'gip': True,
                 'scriptLoader': []
             }
-            return render_template('404.html', pandora_sentry=self.sentry, api_prefix=self.api_prefix, props=props)
+            return render_template('404.html', pandora_sentry=self.sentry, api_prefix=self.__get_api_prefix(),
+                                   props=props)
 
         if 'continue_conversation_url' in share_detail:
             share_detail['continue_conversation_url'] = share_detail['continue_conversation_url'].replace(
@@ -342,7 +347,8 @@ class ChatBot:
             'scriptLoader': []
         }
 
-        return render_template('share.html', pandora_sentry=self.sentry, api_prefix=self.api_prefix, props=props)
+        return render_template('share.html', pandora_sentry=self.sentry, api_prefix=self.__get_api_prefix(),
+                               props=props)
 
     @staticmethod
     async def share_continue(share_id):
