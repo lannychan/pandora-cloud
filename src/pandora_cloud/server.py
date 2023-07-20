@@ -20,7 +20,7 @@ from . import __version__
 class ChatBot:
     __default_ip = '127.0.0.1'
     __default_port = 8018
-    __build_id = 'cx416mT2Lb0ZTj5FxFg1l'
+    __build_id = 'm__df_2bcLUqGXlko-rBN'
 
     def __init__(self, proxy, debug=False, sentry=False, login_local=False):
         self.proxy = proxy
@@ -41,11 +41,13 @@ class ChatBot:
                     template_folder=join(resource_path, 'templates'))
         app.wsgi_app = ProxyFix(app.wsgi_app, x_port=1)
         app.after_request(self.__after_request)
+        app.register_error_handler(404, self.error404)
 
         app.route('/api/auth/session')(self.session)
         app.route('/api/accounts/check/v4-2023-04-27')(self.check)
+        app.route('/api/auth/csrf')(self.csrf)
+        app.route('/api/auth/signout', methods=['POST'])(self.sign_out)
         app.route('/auth/logout')(self.logout)
-        app.route('/error/404')(self.error404)
         app.route('/_next/data/{}/index.json'.format(self.__build_id))(self.chat_info)
         app.route('/_next/data/{}/c/<conversation_id>.json'.format(self.__build_id))(self.chat_info)
         app.route('/_next/data/{}/share/<share_id>.json'.format(self.__build_id))(self.share_info)
@@ -258,7 +260,7 @@ class ChatBot:
         }
 
         template = 'detail.html' if conversation_id else 'chat.html'
-        return render_template(template, pandora_sentry=self.sentry, api_prefix=self.__get_api_prefix(), props=props)
+        return render_template(template, api_prefix=self.__get_api_prefix(), props=props)
 
     async def session(self):
         err, user_id, email, access_token, payload = await self.__get_userinfo()
@@ -281,7 +283,7 @@ class ChatBot:
 
         return jsonify(ret)
 
-    async def error404(self):
+    async def error404(self, e):
         props = {
             'props': {
                 'pageProps': {'statusCode': 404}
@@ -294,7 +296,7 @@ class ChatBot:
             'gip': True,
             'scriptLoader': []
         }
-        return render_template('404.html', pandora_sentry=self.sentry, api_prefix=self.__get_api_prefix(), props=props)
+        return render_template('404.html', api_prefix=self.__get_api_prefix(), props=props)
 
     async def share_detail(self, share_id):
 
@@ -313,8 +315,7 @@ class ChatBot:
                 'gip': True,
                 'scriptLoader': []
             }
-            return render_template('404.html', pandora_sentry=self.sentry, api_prefix=self.__get_api_prefix(),
-                                   props=props)
+            return render_template('404.html', api_prefix=self.__get_api_prefix(), props=props)
 
         if 'continue_conversation_url' in share_detail:
             share_detail['continue_conversation_url'] = share_detail['continue_conversation_url'].replace(
@@ -344,8 +345,7 @@ class ChatBot:
             'scriptLoader': []
         }
 
-        return render_template('share.html', pandora_sentry=self.sentry, api_prefix=self.__get_api_prefix(),
-                               props=props)
+        return render_template('share.html', api_prefix=self.__get_api_prefix(), props=props)
 
     @staticmethod
     async def share_continue(share_id):
@@ -489,27 +489,25 @@ class ChatBot:
                         },
                         'account_id': 'a323bd05-db25-4e8f-9173-2f0c228cc8fa',
                         'is_most_recent_expired_subscription_gratis': True,
-                        'has_previously_paid_subscription': True
+                        'has_previously_paid_subscription': True,
+                        'name': None,
+                        'structure': 'personal',
                     },
                     'features': [
                         'model_switcher',
-                        'model_preview',
                         'system_message',
-                        'data_controls_enabled',
-                        'data_export_enabled',
-                        'show_existing_user_age_confirmation_modal',
-                        'bucketed_history',
                         'priority_driven_models_list',
                         'message_style_202305',
                         'layout_may_2023',
                         'plugins_available',
                         'beta_features',
                         'infinite_scroll_history',
-                        'browsing_available',
                         'browsing_inner_monologue',
-                        'browsing_bing_branding',
+                        'new_plugin_oauth_endpoint',
+                        'code_interpreter_available',
+                        'plugin_review_tools',
+                        'message_debug_info',
                         'shareable_links',
-                        'plugin_display_params',
                         'tools3_dev',
                         'tools2',
                         'debug',
@@ -527,7 +525,20 @@ class ChatBot:
                     }
                 }
             },
-            'temp_ap_available_at': '2023-05-20T17:30:00+00:00'
         }
 
         return jsonify(ret)
+
+    @staticmethod
+    async def csrf():
+        return jsonify({
+            'csrfToken': 'ca8a67e09fc1b14d5146184efeeeb7e42dd247e1772e1f728e6e802cbcfe414e',
+        })
+
+    async def sign_out(self):
+        resp = jsonify({
+            'url': request.args.get('callbackUrl', url_for('login')),
+        })
+        self.__set_cookie(resp, '', 0)
+
+        return resp
